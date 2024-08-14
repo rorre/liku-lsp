@@ -37,6 +37,7 @@ from pygls import server, uris, workspace
 from jedi import Script
 from jedi.api.classes import Name
 from liku_parser import SuggestComponent, SuggestProps, action_at_cursor
+from liku_commands import suggest_components, suggest_props
 
 
 WORKSPACE_SETTINGS = {}
@@ -86,55 +87,9 @@ def completion(params: lsp.CompletionParams):
 
     script = Script(document.source)
     if isinstance(action, SuggestComponent):
-        search_text = action.cursor
-        is_closing_tag = search_text.startswith("/")
-        # Closing tag
-        if is_closing_tag:
-            search_text = search_text[1:]
-
-        completions = map(
-            lambda x: lsp.CompletionItem(
-                label=x.name,
-                insert_text=(
-                    (f"{x.name}></" if not is_closing_tag else "") + f"{x.name}>"
-                ),
-            ),
-            filter(
-                lambda x: x.type in ("function", "class"),
-                script.complete_search(search_text),
-            ),
-        )
-        return list(completions)
+        suggest_components(script, action)
     elif isinstance(action, SuggestProps):
-        func: Name = script.search(action.component)[0]  # type: ignore
-        all_completions: list[lsp.CompletionItem] = []
-
-        log_to_output(f"Received func: {repr(func)}")
-
-        for sig in func.get_signatures():
-            if len(sig.params) == 0:
-                continue
-
-            search_text = action.cursor
-            is_prog_props = search_text.startswith(":")
-
-            if is_prog_props:
-                search_text = search_text[1:]
-
-            for param in filter(
-                lambda param: param.name and param.name.startswith(search_text),
-                sig.params,
-            ):
-                prefix = ":" if is_prog_props else ""
-
-                all_completions.append(
-                    lsp.CompletionItem(
-                        label=f"{param.name}=",
-                        insert_text=f'{prefix}{param.name}=""',
-                    )
-                )
-
-        return all_completions
+        suggest_props(script, action)
 
     return []
 
