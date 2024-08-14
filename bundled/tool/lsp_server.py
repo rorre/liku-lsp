@@ -87,9 +87,9 @@ def completion(params: lsp.CompletionParams):
 
     script = Script(document.source)
     if isinstance(action, SuggestComponent):
-        suggest_components(script, action)
+        return suggest_components(script, action)
     elif isinstance(action, SuggestProps):
-        suggest_props(script, action)
+        return suggest_props(script, action)
 
     return []
 

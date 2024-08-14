@@ -13,3 +13,4 @@ pygls
 packaging
 
 jedi
+liku @ git+https://github.com/rorre/liku@main
