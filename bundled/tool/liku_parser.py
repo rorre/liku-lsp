@@ -142,6 +142,7 @@ def action_at_cursor(document: TextDocument, position: Position) -> LSPAction:
     for token in tokenizer:
         if is_inside_tag and token.type == TokenType.BRACKET and token.value == ">":
             is_inside_tag = False
+            component_token = None
         elif (
             not is_inside_tag and token.type == TokenType.BRACKET and token.value == "<"
         ):
