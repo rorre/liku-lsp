@@ -1,9 +1,12 @@
 from typing import cast
 import typing
 from jedi.api import Script
-from liku_parser import SuggestComponent, SuggestProps
-from lsprotocol.types import CompletionItem
-from jedi.api.classes import Name
+from liku_parser import (
+    SuggestComponent,
+    SuggestProps,
+    SuggestPython,
+)
+from lsprotocol.types import CompletionItem, CompletionItemKind
 from liku import __all__ as liku_elements
 from liku.elements import h as h_func
 
@@ -93,5 +96,30 @@ def suggest_props(script: Script, action: SuggestProps):
     )
 
 
-def get_props_from_liku(component: str):
-    typing.get_type_hints(h_func)
+# module, class, instance, function, param, path, keyword, property and statement
+CompletionItemKindMap = {
+    "module": CompletionItemKind.Module,
+    "class": CompletionItemKind.Class,
+    "instance": CompletionItemKind.Variable,
+    "function": CompletionItemKind.Function,
+    "param": CompletionItemKind.Variable,
+    "path": CompletionItemKind.Text,
+    "keyword": CompletionItemKind.Keyword,
+    "property": CompletionItemKind.Property,
+    "statement": CompletionItemKind.Text,
+}
+
+
+def suggest_python(script: Script, action: SuggestPython):
+    search_text = action.cursor
+    # Is there a way we can avoid this?
+    completions = script.complete_search(search_text, all_scopes=True)
+    return list(
+        map(
+            lambda x: CompletionItem(
+                label=x.name,
+                kind=CompletionItemKindMap.get(x.type),
+            ),
+            completions,
+        )
+    )

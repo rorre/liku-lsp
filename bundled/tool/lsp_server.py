@@ -36,8 +36,17 @@ import lsprotocol.types as lsp
 from pygls import server, uris, workspace
 from jedi import Script
 from jedi.api.classes import Name
-from liku_parser import SuggestComponent, SuggestProps, action_at_cursor
-from liku_commands import suggest_components, suggest_props
+from liku_parser import (
+    SuggestComponent,
+    SuggestProps,
+    SuggestPython,
+    action_at_cursor,
+)
+from liku_commands import (
+    suggest_components,
+    suggest_props,
+    suggest_python,
+)
 
 
 WORKSPACE_SETTINGS = {}
@@ -90,6 +99,8 @@ def completion(params: lsp.CompletionParams):
         return suggest_components(script, action)
     elif isinstance(action, SuggestProps):
         return suggest_props(script, action)
+    elif isinstance(action, SuggestPython):
+        return suggest_python(script, action)
 
     return []
 

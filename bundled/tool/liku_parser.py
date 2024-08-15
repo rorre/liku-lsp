@@ -7,6 +7,7 @@ from pygls.workspace.text_document import TextDocument
 STRING_CHARS = "'\""
 BRACKET_CHARS = "<>"
 PROPS_RE = re.compile(r"""(:?)\w+=(["'])\w*\2""")
+INCOMLETE_PROG_PROPS_RE = re.compile(r""":\w+=["'](.*)""")
 
 
 class TokenType(Enum):
@@ -35,16 +36,27 @@ class SuggestComponent:
 
 
 @dataclass
+class SuggestPython:
+    cursor: str
+
+
+@dataclass
 class Token:
     type: TokenType
     value: str
+    line: int
+    column: int
+
+    @property
+    def length(self):
+        return len(self.value)
 
     @property
     def finalized(self):
         return self.value.endswith(" ")
 
 
-LSPAction = SuggestProps | SuggestComponent | None
+LSPAction = SuggestProps | SuggestComponent | SuggestPython | None
 
 
 class Tokenizer:
@@ -59,8 +71,12 @@ class Tokenizer:
         return self
 
     def __next__(self) -> Token:
+        start_line = self.position.line
+        start_col = self.position.character
+
         buf = ""
         state = ParseState.NONE
+
         while self.position.line < len(self.document.lines) and state != ParseState.END:
             if self.position >= self.max_position:
                 state = ParseState.END
@@ -76,6 +92,9 @@ class Tokenizer:
                 self.position.character = 0
                 if buf:
                     state = ParseState.END
+                else:
+                    start_line = self.position.line
+                    start_col = 0
                 continue
 
             current_char = current_line[self.position.character]
@@ -107,21 +126,47 @@ class Tokenizer:
             raise StopIteration()
 
         if buf in ("<", ">"):
-            return Token(TokenType.BRACKET, buf)
+            return Token(TokenType.BRACKET, buf, start_line, start_col)
 
         if result := PROPS_RE.match(buf):
             if result.group(1) == ":":
-                return Token(TokenType.PROG_PROPS, buf)
-            return Token(TokenType.PROPS, buf)
+                return Token(TokenType.PROG_PROPS, buf, start_line, start_col)
+            return Token(TokenType.PROPS, buf, start_line, start_col)
 
-        return Token(TokenType.IDENT, buf)
+        return Token(TokenType.IDENT, buf, start_line, start_col)
+
+
+# TODO: In the future, we'll change this to string start
+MAGIC = "<!-- liku -->"
+
+
+def find_liku_areas(document: TextDocument):
+    start = -1
+    end = -1
+
+    while True:
+        start = end + 1
+        while start < len(document.lines):
+            if MAGIC in document.lines[start]:
+                break
+
+            start += 1
+        else:
+            return
+
+        end = start + 1
+        while end < len(document.lines):
+            if MAGIC in document.lines[end]:
+                break
+
+            end += 1
+        else:
+            return
+
+        yield (start, end)
 
 
 def action_at_cursor(document: TextDocument, position: Position) -> LSPAction:
-    # Find liku start magic "<!-- liku -->"
-    # TODO: In the future, we'll change this to string start
-    MAGIC = "<!-- liku -->"
-
     start_line = position.line
     while start_line >= 0:
         if MAGIC in document.lines[start_line]:
@@ -168,6 +213,9 @@ def action_at_cursor(document: TextDocument, position: Position) -> LSPAction:
 
     if last_token and component_token:
         if last_token.type == TokenType.IDENT:
+            if match := INCOMLETE_PROG_PROPS_RE.match(last_token.value):
+                return SuggestPython(match.group(1) or "")
+
             return SuggestProps(
                 component_token.value.strip(),
                 "" if last_token.value.endswith(" ") else last_token.value,
