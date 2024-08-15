@@ -103,10 +103,10 @@ CompletionItemKindMap = {
     "instance": CompletionItemKind.Variable,
     "function": CompletionItemKind.Function,
     "param": CompletionItemKind.Variable,
-    "path": CompletionItemKind.Text,
+    "path": CompletionItemKind.Variable,
     "keyword": CompletionItemKind.Keyword,
     "property": CompletionItemKind.Property,
-    "statement": CompletionItemKind.Text,
+    "statement": CompletionItemKind.Variable,
 }
 
 
@@ -114,12 +114,17 @@ def suggest_python(script: Script, action: SuggestPython):
     search_text = action.cursor
     # Is there a way we can avoid this?
     completions = script.complete_search(search_text, all_scopes=True)
-    return list(
-        map(
-            lambda x: CompletionItem(
-                label=x.name,
-                kind=CompletionItemKindMap.get(x.type),
-            ),
-            completions,
-        )
+    completions_unique = set(map(lambda c: (c.name, c.type), completions))
+
+    return sorted(
+        list(
+            map(
+                lambda x: CompletionItem(
+                    label=x[0],
+                    kind=CompletionItemKindMap.get(x[1]),
+                ),
+                completions_unique,
+            )
+        ),
+        key=lambda x: x.label,
     )
