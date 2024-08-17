@@ -6,6 +6,8 @@ from pygls.workspace.text_document import TextDocument
 
 STRING_CHARS = "'\""
 BRACKET_CHARS = "<>"
+TEMPLATE_RE = re.compile(r"{{(.*)}}")
+INCOMPLETE_TEMPLATE_RE = re.compile(r"{{(.*)")
 PROPS_RE = re.compile(r"""(:?)\w+=(["'])\w*\2""")
 INCOMLETE_PROG_PROPS_RE = re.compile(r""":\w+=["'](.*)""")
 
@@ -15,6 +17,8 @@ class TokenType(Enum):
     PROPS = 2
     PROG_PROPS = 3
     BRACKET = 4
+    TEMPLATE = 5
+    INCOMPLETE_TEMPLATE = 6
 
 
 class ParseState(Enum):
@@ -22,6 +26,7 @@ class ParseState(Enum):
     STRING = 1
     IDENT = 2
     END = 3
+    TEMPLATE = 4
 
 
 @dataclass
@@ -75,6 +80,7 @@ class Tokenizer:
         start_col = self.position.character
 
         buf = ""
+        templ_stack = 0
         state = ParseState.NONE
 
         while self.position.line < len(self.document.lines) and state != ParseState.END:
@@ -109,13 +115,35 @@ class Tokenizer:
                 else:
                     state = ParseState.IDENT
 
+                if buf == "{{":
+                    state = ParseState.TEMPLATE
+
+            if state == ParseState.TEMPLATE:
+                if buf.endswith("{{"):
+                    templ_stack += 1
+
+                if buf.endswith("}}"):
+                    templ_stack -= 1
+                    if templ_stack == 0:
+                        state = ParseState.END
+
             if current_char in STRING_CHARS:
                 if state == ParseState.STRING:
                     state = ParseState.END
                 else:
                     state = ParseState.STRING
 
-            if current_char == " ":
+            if current_char == " " and state not in (
+                ParseState.STRING,
+                ParseState.TEMPLATE,
+            ):
+                state = ParseState.END
+
+            # HACK: This is to ensure that {{ x }} is an ident in itself
+            #       + 1 because it'll add + 1 so reset back to start of {
+            if len(buf) > 2 and buf.endswith("{{"):
+                self.position.character -= 2
+                buf = buf[:-2]
                 state = ParseState.END
 
             if state != ParseState.NONE:
@@ -132,6 +160,12 @@ class Tokenizer:
             if result.group(1) == ":":
                 return Token(TokenType.PROG_PROPS, buf, start_line, start_col)
             return Token(TokenType.PROPS, buf, start_line, start_col)
+
+        if result := TEMPLATE_RE.match(buf):
+            return Token(TokenType.TEMPLATE, buf, start_line, start_col)
+
+        if result := INCOMPLETE_TEMPLATE_RE.match(buf):
+            return Token(TokenType.INCOMPLETE_TEMPLATE, buf, start_line, start_col)
 
         return Token(TokenType.IDENT, buf, start_line, start_col)
 
@@ -169,7 +203,7 @@ def find_liku_areas(html_func: str, document: TextDocument):
 
             idx = line.find('"""')
             if idx != -1:
-                end.character = idx - len('"""')
+                end.character = idx
                 # Offset if inline
                 if start.line == end.line:
                     end.character += start.character
@@ -227,6 +261,9 @@ def action_at_cursor(
                 pass
 
         last_token = token
+
+    if last_token and last_token.type == TokenType.INCOMPLETE_TEMPLATE:
+        return SuggestPython(last_token.value[2:].lstrip())
 
     if not is_inside_tag:
         return
