@@ -64,23 +64,11 @@
     "contributes": {
         "configuration": {
             "properties": {
-                "liku.args": {
-                    "default": [],
-                    "description": "Arguments passed in. Each argument is a separate item in the array.",
-                    "items": {
-                        "type": "string"
-                    },
-                    "scope": "resource",
-                    "type": "array"
-                },
-                "liku.path": {
-                    "default": [],
-                    "description": "When set to a path to liku binary, extension will use that. NOTE: Using this option may slowdown server response time.",
-                    "scope": "resource",
-                    "items": {
-                        "type": "string"
-                    },
-                    "type": "array"
+                "liku.htmlFunction": {
+                    "default": "html",
+                    "description": "The HTML function to provide completions. If you change or alias the name to something else, please change this value.",
+                    "scope": "window",
+                    "type": "string"
                 },
                 "liku.importStrategy": {
                     "default": "useBundled",

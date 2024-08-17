@@ -87,9 +87,12 @@ def completion(params: lsp.CompletionParams):
     document: workspace.TextDocument = LSP_SERVER.workspace.get_text_document(
         params.text_document.uri
     )
+    setting = _get_settings_by_document(document)
+    html_func = setting.get("htmlFunction", "html")
+
     log_to_output(str(document.lines))
     log_to_output(str(params.position))
-    action = action_at_cursor(document, params.position)
+    action = action_at_cursor(document, params.position, html_func)
     log_to_output(f"Action received: {repr(action)}")
     if not action:
         return []
@@ -135,6 +138,7 @@ def _get_global_defaults():
         "args": GLOBAL_SETTINGS.get("args", []),
         "importStrategy": GLOBAL_SETTINGS.get("importStrategy", "useBundled"),
         "showNotifications": GLOBAL_SETTINGS.get("showNotifications", "off"),
+        "htmlFunction": GLOBAL_SETTINGS.get("htmlFunction", "html"),
     }
 
 

@@ -136,49 +136,69 @@ class Tokenizer:
         return Token(TokenType.IDENT, buf, start_line, start_col)
 
 
-# TODO: In the future, we'll change this to string start
-MAGIC = "<!-- liku -->"
-
-
-def find_liku_areas(document: TextDocument):
-    start = -1
-    end = -1
+def find_liku_areas(html_func: str, document: TextDocument):
+    html_start_re = re.compile(rf"=? *{html_func} *\(")
+    start = Position(0, 0)
+    end = Position(0, 0)
 
     while True:
-        start = end + 1
-        while start < len(document.lines):
-            if MAGIC in document.lines[start]:
+        # Find the html func `html(`
+        start = Position(end.line + 1, 0)
+        while start.line < len(document.lines):
+            if html_start_re.search(document.lines[start.line]):
                 break
 
-            start += 1
+            start.line += 1
         else:
             return
 
-        end = start + 1
-        while end < len(document.lines):
-            if MAGIC in document.lines[end]:
+        # Find the opening multistring
+        while True:
+            idx = document.lines[start.line].find('"""')
+            if idx != -1:
+                start.character = idx + len('"""')
                 break
 
-            end += 1
+            start.line += 1
+
+        end = Position(start.line, 0)
+        while end.line < len(document.lines):
+            line = document.lines[end.line]
+            if start.line == end.line:
+                line = line[start.character :]
+
+            idx = line.find('"""')
+            if idx != -1:
+                end.character = idx - len('"""')
+                # Offset if inline
+                if start.line == end.line:
+                    end.character += start.character
+                break
+
+            end.line += 1
         else:
             return
 
         yield (start, end)
 
 
-def action_at_cursor(document: TextDocument, position: Position) -> LSPAction:
-    start_line = position.line
-    while start_line >= 0:
-        if MAGIC in document.lines[start_line]:
+def action_at_cursor(
+    document: TextDocument,
+    position: Position,
+    html_func: str,
+) -> LSPAction:
+    start_position = None
+    for start, end in find_liku_areas(html_func, document):
+        if start > position:
             break
 
-        start_line -= 1
+        if position >= start and position <= end:
+            start_position = start
 
-    if start_line == -1:
+    if not start_position:
         return None
 
-    start_column = document.lines[start_line].find(MAGIC) + len(MAGIC)
-    tokenizer = Tokenizer(document, Position(start_line, start_column), position)
+    tokenizer = Tokenizer(document, start_position, position)
 
     is_inside_tag = False
     component_token: Token | None = None

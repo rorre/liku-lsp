@@ -8,8 +8,7 @@ import { getConfiguration, getWorkspaceFolders } from './vscodeapi';
 export interface ISettings {
     cwd: string;
     workspace: string;
-    args: string[];
-    path: string[];
+    htmlFunction: string;
     interpreter: string[];
     importStrategy: string;
     showNotifications: string;
@@ -64,8 +63,7 @@ export async function getWorkspaceSettings(
     const workspaceSetting = {
         cwd: workspace.uri.fsPath,
         workspace: workspace.uri.toString(),
-        args: resolveVariables(config.get<string[]>(`args`) ?? [], workspace),
-        path: resolveVariables(config.get<string[]>(`path`) ?? [], workspace),
+        htmlFunction: config.get<string>(`htmlFunction`) ?? 'html',
         interpreter: resolveVariables(interpreter, workspace),
         importStrategy: config.get<string>(`importStrategy`) ?? 'useBundled',
         showNotifications: config.get<string>(`showNotifications`) ?? 'off',
@@ -92,8 +90,7 @@ export async function getGlobalSettings(namespace: string, includeInterpreter?: 
     const setting = {
         cwd: process.cwd(),
         workspace: process.cwd(),
-        args: getGlobalValue<string[]>(config, 'args', []),
-        path: getGlobalValue<string[]>(config, 'path', []),
+        htmlFunction: config.get<string>(`htmlFunction`) ?? 'html',
         interpreter: interpreter,
         importStrategy: getGlobalValue<string>(config, 'importStrategy', 'useBundled'),
         showNotifications: getGlobalValue<string>(config, 'showNotifications', 'off'),
@@ -103,8 +100,7 @@ export async function getGlobalSettings(namespace: string, includeInterpreter?: 
 
 export function checkIfConfigurationChanged(e: ConfigurationChangeEvent, namespace: string): boolean {
     const settings = [
-        `${namespace}.args`,
-        `${namespace}.path`,
+        `${namespace}.htmlFunction`,
         `${namespace}.interpreter`,
         `${namespace}.importStrategy`,
         `${namespace}.showNotifications`,
