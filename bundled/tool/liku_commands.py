@@ -84,6 +84,9 @@ def suggest_props(script: Script, action: SuggestProps):
     is_prog_props = search_text.startswith(":")
     prefix = ":" if is_prog_props else ""
 
+    if is_prog_props:
+        search_text = search_text[1:]
+
     completions = _suggest_from_liku(
         action.component, search_text
     ) or _suggest_from_custom_component(script, action.component, search_text)
