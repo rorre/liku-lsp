@@ -93,7 +93,10 @@ def suggest_props(script: Script, action: SuggestProps):
 
     return list(
         map(
-            lambda x: CompletionItem(label=f"{x}=", insert_text=f'{prefix}{x}=""'),
+            lambda x: CompletionItem(
+                label=f"{prefix}{x}=",
+                insert_text=f'{prefix}{x}=""',
+            ),
             completions,
         )
     )
